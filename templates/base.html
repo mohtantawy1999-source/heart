@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{% endblock %} — {{ site().site_name }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#f0f4f8;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a3a2e,#0f2419);color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.header-brand{display:flex;align-items:center;gap:10px}
+.header-logo{width:34px;height:34px;border-radius:8px;object-fit:cover}
+.header h1{font-size:16px;font-weight:700}
+.header-links{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.header-links a{color:#aad4c0;font-size:13px;text-decoration:none}
+.nav-tabs{background:#fff;border-bottom:2px solid #e8e8e8;padding:0 22px;display:flex;gap:0;flex-wrap:wrap}
+.nav-tab{padding:12px 18px;font-size:13px;font-weight:600;color:#666;cursor:pointer;border-bottom:3px solid transparent;text-decoration:none;transition:all .15s}
+.nav-tab:hover{color:#1a6e4a}
+.nav-tab.active{color:#1a6e4a;border-bottom-color:#1a6e4a}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card-title{font-size:16px;font-weight:700;color:#1a3a2e;margin-bottom:16px;border-bottom:2px solid #f0f4f8;padding-bottom:10px}
+.flash{padding:11px 15px;border-radius:9px;margin-bottom:14px;font-size:14px}
+.flash.success{background:#d4edda;color:#155724}
+.flash.error{background:#f8d7da;color:#721c24}
+input[type=text],input[type=password],input[type=tel],input[type=number],input[type=date],select,textarea{
+  padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:inherit;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#1a6e4a}
+.btn{padding:10px 18px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.btn-green{background:#1a6e4a;color:#fff}.btn-green:hover{background:#228a5c}
+.btn-purple{background:#4a148c;color:#fff}.btn-purple:hover{background:#6a1cbc}
+.btn-red{background:#dc3545;color:#fff}.btn-red:hover{background:#b02a37}
+.btn-yellow{background:#ffc107;color:#333}.btn-yellow:hover{background:#e0a800}
+.btn-blue{background:#0f3460;color:#fff}.btn-blue:hover{background:#1a4a8a}
+.btn-sm{padding:6px 12px;font-size:12px}
+.badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700}
+.badge-green{background:#d4edda;color:#155724}
+.badge-red{background:#f8d7da;color:#721c24}
+.badge-yellow{background:#fff3cd;color:#856404}
+.badge-blue{background:#e8f0fe;color:#1a56db}
+.badge-purple{background:#f3e5ff;color:#4a148c}
+.badge-gray{background:#f0f0f0;color:#555}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.form-row>*{flex:1;min-width:140px}
+.form-label{font-size:13px;font-weight:600;color:#444;margin-bottom:5px;display:block}
+.pw-cell{font-family:monospace;font-size:13px;background:#f5f5f5;padding:3px 8px;border-radius:5px;filter:blur(4px);cursor:pointer;transition:filter .2s;display:inline-block}
+.pw-cell:hover{filter:none}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f0f4f8;padding:9px 10px;text-align:right;font-size:12px;color:#555;font-weight:600}
+td{padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:hover{background:#fafafa}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:26px;width:360px;max-width:95vw}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:14px;color:#1a3a2e}
+.modal-btns{display:flex;gap:10px;margin-top:14px}
+.modal-btns button{flex:1;padding:11px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;border:none}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-brand">
+    {% if site().logo_data %}<img src="{{ site().logo_data }}" class="header-logo" alt="">{% endif %}
+    <h1>{{ site().site_name }}</h1>
+  </div>
+  <div class="header-links">
+    {% if session.uid %}<span style="color:#aad4c0;font-size:13px">{{ session.display }}</span>{% endif %}
+    {% block header_links %}{% endblock %}
+    <a href="/logout">خروج ↩</a>
+  </div>
+</div>
+
+{% block nav %}{% endblock %}
+
+<div class="container">
+  {% for cat,msg in get_flashed_messages(with_categories=True) %}
+    <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</div>
+
+{% block modals %}{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>
