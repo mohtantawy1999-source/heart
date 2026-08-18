@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}لوحة الأدمن{% endblock %}
+
+{% block header_links %}
+<button onclick="openPwModal()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:5px 12px;border-radius:7px;font-size:13px;cursor:pointer">🔑 تغيير كلمة السر</button>
+{% endblock %}
+
+{% block nav %}
+<div class="nav-tabs">
+  <a class="nav-tab {% if not request.args.get('tab') or request.args.get('tab')=='followup' %}active{% endif %}" href="?tab=followup&date={{ sel.strftime('%Y-%m-%d') }}">✅ المتابعة اليومية</a>
+  <a class="nav-tab {% if request.args.get('tab')=='report' %}active{% endif %}" href="?tab=report">📊 التقارير</a>
+  <a class="nav-tab {% if request.args.get('tab')=='users' %}active{% endif %}" href="?tab=users">👥 أعضاء مجموعتي</a>
+</div>
+{% endblock %}
+
+{% block content %}
+{% set tab = request.args.get('tab','followup') %}
+
+<!-- ═══ تبويب المتابعة اليومية ═══ -->
+{% if tab == 'followup' %}
+<div class="card">
+  <div class="card-title" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <span>✅ متابعة يوم {{ sel.strftime('%d/%m/%Y') }}</span>
+    <!-- تنقل بين الأيام -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      {% for d in days %}
+      <a href="?tab=followup&date={{ d.strftime('%Y-%m-%d') }}"
+         style="padding:5px 10px;border-radius:7px;border:2px solid {{ '#1a6e4a' if d==sel else '#e0e0e0' }};background:{{ '#e8f4ee' if d==sel else '#fff' }};font-size:11px;text-decoration:none;color:{{ '#1a6e4a' if d==sel else '#555' }};font-weight:{{ '700' if d==sel else '400' }}">
+        {{ d.strftime('%d/%m') }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if users %}
+  <form method="POST">
+    <input type="hidden" name="action" value="save_followup">
+    <input type="hidden" name="fu_date" value="{{ sel.strftime('%Y-%m-%d') }}">
+    <table>
+      <tr>
+        <th>العضو</th>
+        <th>درجات الأوراد</th>
+        <th>تابعت</th>
+        <th>تقييمي (من 100)</th>
+      </tr>
+      {% for u in users %}
+      {% set fu = sel_followup.get(u.id) %}
+      <tr>
+        <td><strong>{{ u.display_name or u.username }}</strong></td>
+        <td>
+          {% set pts = 0 %}
+          {% for day in report %}
+            {% if day.user.id == u.id %}
+              {% for dd in day.days %}
+                {% if dd.date == sel %}{% set pts = dd.points %}{% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          <span class="badge badge-green">{{ pts }} درجة</span>
+        </td>
+        <td>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" name="fol_{{ u.id }}" {% if fu and fu.followed %}checked{% endif %}>
+            <span style="font-size:13px">تابعت</span>
+          </label>
+        </td>
+        <td>
+          <input type="number" name="score_{{ u.id }}" min="0" max="100"
+                 value="{{ fu.score if fu and fu.score is not none else '' }}"
+                 placeholder="—" style="width:80px;padding:6px 8px;font-size:13px">
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    <button type="submit" class="btn btn-green" style="margin-top:14px">💾 حفظ المتابعة</button>
+  </form>
+  {% else %}
+  <p style="text-align:center;color:#888;padding:20px">مفيش أعضاء في مجموعتك لسه</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ═══ تبويب التقارير ═══ -->
+{% if tab == 'report' %}
+<div class="card">
+  <div class="card-title">📊 تقرير أعضاء مجموعتي</div>
+  {% for udata in report %}
+  <div style="border:1px solid #e8e8e8;border-radius:12px;padding:16px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <span style="font-weight:700;font-size:15px">{{ udata.user.display_name or udata.user.username }}</span>
+      <span class="badge badge-green" style="font-size:13px">{{ udata.total_pts }} درجة إجمالي</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+      {% for dd in udata.days %}
+      <div style="border-radius:8px;padding:6px 4px;text-align:center;font-size:11px;border:1px solid {{ '#28a745' if dd.missing==0 and dd.points>0 else '#ffc107' if dd.points>0 else '#e0e0e0' }};background:{{ '#d4edda' if dd.missing==0 and dd.points>0 else '#fff9e6' if dd.points>0 else '#f8f8f8' }}">
+        <div style="font-weight:600;color:#555;font-size:10px">{{ dd.date.strftime('%a')|replace('Mon','الاثنين')|replace('Tue','الثلاثاء')|replace('Wed','الأربعاء')|replace('Thu','الخميس')|replace('Fri','الجمعة')|replace('Sat','السبت')|replace('Sun','الأحد') }}</div>
+        <div style="color:#888;font-size:10px">{{ dd.date.strftime('%d/%m') }}</div>
+        <div style="font-weight:700;color:#1a6e4a;margin-top:2px">{{ dd.points }}</div>
+        {% if dd.fu %}
+        <div style="margin-top:2px">
+          {% if dd.fu.followed %}<span style="font-size:9px;color:#1a6e4a">✅تابع</span>{% endif %}
+          {% if dd.fu.score is not none %}<span style="font-size:9px;color:#0f3460">{{ dd.fu.score }}</span>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% if not report %}
+  <p style="text-align:center;color:#888;padding:20px">مفيش أعضاء في مجموعتك</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ═══ تبويب الأعضاء ═══ -->
+{% if tab == 'users' %}
+<div class="card">
+  <div class="card-title">👥 أعضاء مجموعتي ({{ users|length }})</div>
+  <table>
+    <tr><th>الاسم</th><th>اسم الدخول</th><th>كلمة السر</th><th>تغيير كلمة السر</th></tr>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.display_name or '—' }}</td>
+      <td><code>{{ u.username }}</code></td>
+      <td>
+        {% set full_u = get_user_plain(u.id) %}
+        <span class="pw-cell">{{ full_u }}</span>
+      </td>
+      <td>
+        <button onclick="openResetModal({{ u.id }},'{{ u.display_name or u.username }}')" class="btn btn-blue btn-sm">تغيير</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block modals %}
+<!-- Modal كلمة السر الخاصة بالأدمن -->
+<div class="modal-overlay" id="pwModal">
+  <div class="modal">
+    <h3>🔑 تغيير كلمة سرك</h3>
+    <form method="POST" action="/change_password">
+      <label class="form-label" style="margin-top:8px">كلمة السر الحالية</label>
+      <input type="password" name="old_password" required style="margin-bottom:12px">
+      <label class="form-label">كلمة السر الجديدة</label>
+      <input type="password" name="new_password" required minlength="4" style="margin-bottom:12px">
+      <label class="form-label">تأكيد</label>
+      <input type="password" name="new_password2" required minlength="4" style="margin-bottom:0">
+      <div class="modal-btns">
+        <button type="submit" style="background:#1a6e4a;color:#fff">حفظ</button>
+        <button type="button" onclick="closePwModal()" style="background:#f0f0f0;color:#555">إلغاء</button>
+      </div>
+    </form>
+    <hr style="margin:14px 0;border-color:#f0f0f0">
+    <h3 style="margin-bottom:10px">✏️ تغيير اسم المستخدم</h3>
+    <form method="POST" action="/change_username">
+      <input type="text" name="new_username" placeholder="اسم المستخدم الجديد" required style="margin-bottom:10px;direction:ltr">
+      <div class="modal-btns">
+        <button type="submit" style="background:#0f3460;color:#fff">تغيير</button>
+        <button type="button" onclick="closePwModal()" style="background:#f0f0f0;color:#555">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal تغيير كلمة سر user -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal">
+    <h3>🔑 تغيير كلمة سر <span id="resetName"></span></h3>
+    <form method="POST">
+      <input type="hidden" name="action" value="reset_user_pw">
+      <input type="hidden" name="user_id" id="resetUID">
+      <label class="form-label" style="margin-top:8px">كلمة السر الجديدة</label>
+      <input type="text" name="new_pw" id="resetNewPw" required minlength="4" style="margin-bottom:0;direction:ltr">
+      <div class="modal-btns">
+        <button type="submit" style="background:#0f3460;color:#fff">حفظ</button>
+        <button type="button" onclick="closeResetModal()" style="background:#f0f0f0;color:#555">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openPwModal(){document.getElementById('pwModal').classList.add('open')}
+function closePwModal(){document.getElementById('pwModal').classList.remove('open')}
+function openResetModal(uid,name){
+  document.getElementById('resetUID').value=uid
+  document.getElementById('resetName').textContent=name
+  document.getElementById('resetNewPw').value=''
+  document.getElementById('resetModal').classList.add('open')
+}
+function closeResetModal(){document.getElementById('resetModal').classList.remove('open')}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')}))
+</script>
+{% endblock %}
