@@ -13,20 +13,22 @@
 </div>
 {% endblock %}
 
+{% macro day_ar(d) %}{{ d.strftime('%A')|replace('Monday','الاثنين')|replace('Tuesday','الثلاثاء')|replace('Wednesday','الأربعاء')|replace('Thursday','الخميس')|replace('Friday','الجمعة')|replace('Saturday','السبت')|replace('Sunday','الأحد') }}{% endmacro %}
+{% macro day_short(d) %}{{ d.strftime('%a')|replace('Mon','الاثنين')|replace('Tue','الثلاثاء')|replace('Wed','الأربعاء')|replace('Thu','الخميس')|replace('Fri','الجمعة')|replace('Sat','السبت')|replace('Sun','الأحد') }}{% endmacro %}
+
 {% block content %}
 {% set tab = request.args.get('tab','followup') %}
 
-<!-- ═══ تبويب المتابعة اليومية ═══ -->
+<!-- ═══ المتابعة اليومية ═══ -->
 {% if tab == 'followup' %}
 <div class="card">
   <div class="card-title" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span>✅ متابعة يوم {{ sel.strftime('%d/%m/%Y') }}</span>
-    <!-- تنقل بين الأيام -->
+    <span>✅ متابعة {{ day_ar(sel) }} {{ sel.strftime('%d/%m/%Y') }}</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       {% for d in days %}
       <a href="?tab=followup&date={{ d.strftime('%Y-%m-%d') }}"
          style="padding:5px 10px;border-radius:7px;border:2px solid {{ '#1a6e4a' if d==sel else '#e0e0e0' }};background:{{ '#e8f4ee' if d==sel else '#fff' }};font-size:11px;text-decoration:none;color:{{ '#1a6e4a' if d==sel else '#555' }};font-weight:{{ '700' if d==sel else '400' }}">
-        {{ d.strftime('%d/%m') }}
+        {{ day_short(d) }} {{ d.strftime('%d/%m') }}
       </a>
       {% endfor %}
     </div>
@@ -48,9 +50,9 @@
         <td><strong>{{ u.display_name or u.username }}</strong></td>
         <td>
           {% set pts = 0 %}
-          {% for day in report %}
-            {% if day.user.id == u.id %}
-              {% for dd in day.days %}
+          {% for udata in report %}
+            {% if udata.user.id == u.id %}
+              {% for dd in udata.days %}
                 {% if dd.date == sel %}{% set pts = dd.points %}{% endif %}
               {% endfor %}
             {% endif %}
@@ -79,40 +81,105 @@
 </div>
 {% endif %}
 
-<!-- ═══ تبويب التقارير ═══ -->
+<!-- ═══ التقارير المفصّلة ═══ -->
 {% if tab == 'report' %}
+
+<!-- ملخص إجمالي -->
 <div class="card">
-  <div class="card-title">📊 تقرير أعضاء مجموعتي</div>
-  {% for udata in report %}
-  <div style="border:1px solid #e8e8e8;border-radius:12px;padding:16px;margin-bottom:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <span style="font-weight:700;font-size:15px">{{ udata.user.display_name or udata.user.username }}</span>
-      <span class="badge badge-green" style="font-size:13px">{{ udata.total_pts }} درجة إجمالي</span>
+  <div class="card-title">📊 ملخص المجموعة ({{ sd.strftime('%d/%m') }} – {{ ed.strftime('%d/%m/%Y') }})</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:6px">
+    {% for udata in report %}
+    <div style="background:linear-gradient(135deg,#1a6e4a,#228a5c);color:#fff;border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">{{ udata.user.display_name or udata.user.username }}</div>
+      <div style="font-size:26px;font-weight:700">{{ udata.total_pts }}</div>
+      <div style="font-size:11px;opacity:.85">درجة إجمالي</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
-      {% for dd in udata.days %}
-      <div style="border-radius:8px;padding:6px 4px;text-align:center;font-size:11px;border:1px solid {{ '#28a745' if dd.missing==0 and dd.points>0 else '#ffc107' if dd.points>0 else '#e0e0e0' }};background:{{ '#d4edda' if dd.missing==0 and dd.points>0 else '#fff9e6' if dd.points>0 else '#f8f8f8' }}">
-        <div style="font-weight:600;color:#555;font-size:10px">{{ dd.date.strftime('%a')|replace('Mon','الاثنين')|replace('Tue','الثلاثاء')|replace('Wed','الأربعاء')|replace('Thu','الخميس')|replace('Fri','الجمعة')|replace('Sat','السبت')|replace('Sun','الأحد') }}</div>
-        <div style="color:#888;font-size:10px">{{ dd.date.strftime('%d/%m') }}</div>
-        <div style="font-weight:700;color:#1a6e4a;margin-top:2px">{{ dd.points }}</div>
-        {% if dd.fu %}
-        <div style="margin-top:2px">
-          {% if dd.fu.followed %}<span style="font-size:9px;color:#1a6e4a">✅تابع</span>{% endif %}
-          {% if dd.fu.score is not none %}<span style="font-size:9px;color:#0f3460">{{ dd.fu.score }}</span>{% endif %}
-        </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- تقرير مفصّل لكل عضو -->
+{% for udata in report %}
+<div class="card">
+  <!-- هيدر العضو -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div>
+      <span style="font-size:17px;font-weight:700;color:#1a3a2e">{{ udata.user.display_name or udata.user.username }}</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge badge-green" style="font-size:13px;padding:5px 12px">{{ udata.total_pts }} درجة إجمالي</span>
+      <span class="badge badge-blue" style="font-size:12px">{{ udata.days|selectattr('points','gt',0)|list|length }} يوم سجّل</span>
+      <span class="badge badge-gray" style="font-size:12px">{{ udata.days|selectattr('missing','gt',0)|list|length }} يوم ناقص</span>
+    </div>
+  </div>
+
+  <!-- تفاصيل كل يوم -->
+  {% for dd in udata.days %}
+  <div style="border:1px solid #eee;border-radius:10px;margin-bottom:10px;overflow:hidden">
+
+    <!-- هيدر اليوم -->
+    <div style="background:{{ '#e8f4ee' if dd.missing==0 and dd.points>0 else '#fff9e6' if dd.points>0 else '#f8f8f8' }};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid #eee;cursor:pointer"
+         onclick="toggleDay('day_{{ udata.user.id }}_{{ loop.index }}')">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:14px;font-weight:700;color:#1a3a2e">
+          {{ day_ar(dd.date) }} {{ dd.date.strftime('%d/%m/%Y') }}
+        </span>
+        {% if dd.fu and dd.fu.followed %}
+          <span class="badge badge-green" style="font-size:11px">✅ تابع</span>
+        {% endif %}
+        {% if dd.fu and dd.fu.score is not none %}
+          <span class="badge badge-blue" style="font-size:11px">تقييم: {{ dd.fu.score }}/100</span>
         {% endif %}
       </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        {% if dd.points > 0 %}
+          <span style="font-size:18px;font-weight:700;color:#1a6e4a">{{ dd.points }} درجة</span>
+        {% else %}
+          <span style="font-size:13px;color:#aaa">لم يسجّل</span>
+        {% endif %}
+        {% if dd.missing > 0 %}
+          <span class="badge badge-yellow" style="font-size:11px">{{ dd.missing }} ورد ناقص</span>
+        {% endif %}
+        <span style="color:#aaa;font-size:16px">▾</span>
+      </div>
+    </div>
+
+    <!-- تفاصيل الأوراد (قابلة للطي) -->
+    <div id="day_{{ udata.user.id }}_{{ loop.index }}" style="display:none;padding:12px 14px">
+      {% if dd.records %}
+      {% for wird in wirds %}
+        {% set rec = dd.records.get(wird.id) %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;color:#333;flex:1">{{ wird_name(wird, dd.date) }}</span>
+          {% if rec %}
+            {% set opt = wirds|selectattr('id','equalto',wird.id)|first %}
+            {% for o in wird.options %}
+              {% if o.code == rec.option_code %}
+                <span style="font-size:12px;background:#e8f4ee;color:#1a6e4a;padding:3px 10px;border-radius:6px;font-weight:600">
+                  {{ o.label }} — {{ rec.points }} درجة
+                </span>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <span style="font-size:12px;color:#aaa;background:#f5f5f5;padding:3px 10px;border-radius:6px">لم يسجّل</span>
+          {% endif %}
+        </div>
       {% endfor %}
+      {% else %}
+      <p style="color:#aaa;font-size:13px;text-align:center;padding:10px 0">لم يسجّل أي ورد في هذا اليوم</p>
+      {% endif %}
     </div>
   </div>
   {% endfor %}
-  {% if not report %}
-  <p style="text-align:center;color:#888;padding:20px">مفيش أعضاء في مجموعتك</p>
-  {% endif %}
 </div>
+{% endfor %}
+
+{% if not report %}
+<p style="text-align:center;color:#888;padding:30px">مفيش أعضاء في مجموعتك</p>
+{% endif %}
 {% endif %}
 
-<!-- ═══ تبويب الأعضاء ═══ -->
+<!-- ═══ الأعضاء ═══ -->
 {% if tab == 'users' %}
 <div class="card">
   <div class="card-title">👥 أعضاء مجموعتي ({{ users|length }})</div>
@@ -122,13 +189,8 @@
     <tr>
       <td>{{ u.display_name or '—' }}</td>
       <td><code>{{ u.username }}</code></td>
-      <td>
-        {% set full_u = get_user_plain(u.id) %}
-        <span class="pw-cell">{{ full_u }}</span>
-      </td>
-      <td>
-        <button onclick="openResetModal({{ u.id }},'{{ u.display_name or u.username }}')" class="btn btn-blue btn-sm">تغيير</button>
-      </td>
+      <td><span class="pw-cell">{{ get_user_plain(u.id) }}</span></td>
+      <td><button onclick="openResetModal({{ u.id }},'{{ u.display_name or u.username }}')" class="btn btn-blue btn-sm">تغيير</button></td>
     </tr>
     {% endfor %}
   </table>
@@ -137,7 +199,6 @@
 {% endblock %}
 
 {% block modals %}
-<!-- Modal كلمة السر الخاصة بالأدمن -->
 <div class="modal-overlay" id="pwModal">
   <div class="modal">
     <h3>🔑 تغيير كلمة سرك</h3>
@@ -165,7 +226,6 @@
   </div>
 </div>
 
-<!-- Modal تغيير كلمة سر user -->
 <div class="modal-overlay" id="resetModal">
   <div class="modal">
     <h3>🔑 تغيير كلمة سر <span id="resetName"></span></h3>
@@ -195,5 +255,9 @@ function openResetModal(uid,name){
 }
 function closeResetModal(){document.getElementById('resetModal').classList.remove('open')}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')}))
+function toggleDay(id){
+  const el=document.getElementById(id)
+  el.style.display=el.style.display==='none'?'block':'none'
+}
 </script>
 {% endblock %}
