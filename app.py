@@ -871,27 +871,96 @@ def super_dashboard():
     all_users  = qall(conn, "SELECT * FROM users WHERE role='user'    ORDER BY display_name")
     all_admins = qall(conn, "SELECT * FROM users WHERE role='admin'   ORDER BY display_name")
     all_super  = qall(conn, "SELECT * FROM users WHERE role='superadmin' ORDER BY display_name")
-
-    # تقرير إجمالي كل users
     days = period_days(sd, ed)
-    report_users = []
-    for u in all_users:
-        tot = calc_total_score(conn, u["id"], sd, ed)
-        sup = qone(conn,"SELECT display_name FROM users WHERE id=:p1",(u["supervisor_id"],)) if u.get("supervisor_id") else None
-        report_users.append({**u, "total_pts": tot, "sup_name": sup["display_name"] if sup else "—"})
 
-    # تقرير إجمالي كل admins (مجموع درجات الـ users اللي تحتهم)
-    report_admins = []
+    # ── تقرير مفصّل لكل user (يومياً + درجاته + ما سجّله) ──────────
+    report_users_detail = []
+    for u in all_users:
+        sup = qone(conn, "SELECT id,display_name,username FROM users WHERE id=:p1",
+                   (u["supervisor_id"],)) if u.get("supervisor_id") else None
+        udata = {
+            "user": u,
+            "sup": sup,
+            "total_pts": 0,
+            "days": []
+        }
+        for d in days:
+            dr = qall(conn,
+                "SELECT wird_id,option_code,points FROM records WHERE user_id=:p1 AND record_date=:p2",
+                (u["id"], d.isoformat()))
+            day_rec = {r["wird_id"]: r for r in dr}
+            day_pts = sum(r["points"] for r in dr)
+            udata["total_pts"] += day_pts
+            udata["days"].append({
+                "date": d, "records": day_rec,
+                "points": day_pts, "missing": len(wirds) - len(dr)
+            })
+        report_users_detail.append(udata)
+
+    # ── تقرير مفصّل لكل admin (متابعاته يومياً) ────────────────────
+    report_admins_detail = []
     for a in all_admins:
-        my_users = qall(conn,"SELECT id FROM users WHERE supervisor_id=:p1",(a["id"],))
+        my_users = qall(conn,
+            "SELECT id,display_name,username FROM users WHERE supervisor_id=:p1 ORDER BY display_name",
+            (a["id"],))
         group_pts = sum(calc_total_score(conn, u["id"], sd, ed) for u in my_users)
-        report_admins.append({**a, "group_pts": group_pts, "user_count": len(my_users)})
+
+        admin_days = []
+        for d in days:
+            followed_count = 0
+            not_followed = []
+            day_followups = []
+            for u in my_users:
+                fu = qone(conn,
+                    "SELECT followed,score FROM admin_followup WHERE admin_id=:p1 AND user_id=:p2 AND follow_date=:p3",
+                    (a["id"], u["id"], d.isoformat()))
+                if fu and fu["followed"]:
+                    followed_count += 1
+                else:
+                    not_followed.append(u.get("display_name") or u["username"])
+                day_followups.append({
+                    "user": u,
+                    "followed": fu["followed"] if fu else 0,
+                    "score": fu["score"] if fu else None
+                })
+            admin_days.append({
+                "date": d,
+                "followups": day_followups,
+                "followed_count": followed_count,
+                "not_followed": not_followed,
+                "total_users": len(my_users)
+            })
+
+        report_admins_detail.append({
+            "admin": a,
+            "my_users": my_users,
+            "group_pts": group_pts,
+            "user_count": len(my_users),
+            "days": admin_days
+        })
+
+    # إجمالي بسيط للتبويب القديم
+    report_users = [{"id": u["id"], "display_name": u.get("display_name"), "username": u["username"],
+                     "plain_pw": u.get("plain_pw"), "supervisor_id": u.get("supervisor_id"),
+                     "total_pts": d["total_pts"],
+                     "sup_name": (qone(conn, "SELECT display_name FROM users WHERE id=:p1",
+                                       (u["supervisor_id"],)) or {}).get("display_name","—") if u.get("supervisor_id") else "—"}
+                    for u, d in zip(all_users, report_users_detail)]
+
+    report_admins = [{"id": a["id"], "display_name": a.get("display_name"), "username": a["username"],
+                      "plain_pw": a.get("plain_pw"),
+                      "group_pts": d["group_pts"], "user_count": d["user_count"]}
+                     for a, d in zip(all_admins, report_admins_detail)]
 
     conn.close()
     return render_template("super_dashboard.html",
         s=s, wirds=wirds, all_users=all_users, all_admins=all_admins,
         all_super=all_super, report_users=report_users,
-        report_admins=report_admins, sd=sd, ed=ed)
+        report_admins=report_admins,
+        report_users_detail=report_users_detail,
+        report_admins_detail=report_admins_detail,
+        sd=sd, ed=ed, days=days,
+        wird_name=lambda w,d: wird_display_name(w, d, sd, s.get("page_start",1)))
 
 
 if __name__ == "__main__":
