@@ -9,7 +9,7 @@
 body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#f0f4f8;min-height:100vh}
 .header{background:linear-gradient(135deg,#1a3a2e,#0f2419);color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .header-brand{display:flex;align-items:center;gap:10px}
-.header-logo{width:34px;height:34px;border-radius:8px;object-fit:cover}
+.header-logo{border-radius:8px;object-fit:cover}
 .header h1{font-size:16px;font-weight:700}
 .header-links{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .header-links a{color:#aad4c0;font-size:13px;text-decoration:none}
@@ -60,7 +60,7 @@ tr:hover{background:#fafafa}
 <body>
 <div class="header">
   <div class="header-brand">
-    {% if site().logo_data %}<img src="{{ site().logo_data }}" class="header-logo" alt="">{% endif %}
+    {% if site().logo_data %}<img src="{{ site().logo_data }}" class="header-logo" alt="" style="width:{{ site().logo_size or 60 }}px;height:{{ site().logo_size or 60 }}px">{% endif %}
     <h1>{{ site().site_name }}</h1>
   </div>
   <div class="header-links">
