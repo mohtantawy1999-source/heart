@@ -311,36 +311,229 @@
 {% endfor %}
 {% endif %}
 
+{% macro day_ar(d) %}{{ d.strftime('%A')|replace('Monday','الاثنين')|replace('Tuesday','الثلاثاء')|replace('Wednesday','الأربعاء')|replace('Thursday','الخميس')|replace('Friday','الجمعة')|replace('Saturday','السبت')|replace('Sunday','الأحد') }}{% endmacro %}
+
 <!-- ═══ التقارير ═══ -->
 {% if tab == 'report' %}
-<div class="card">
-  <div class="card-title">📊 تقرير الـ Admins ({{ sd.strftime('%d/%m') }} – {{ ed.strftime('%d/%m/%Y') }})</div>
-  <table>
-    <tr><th>الـ Admin</th><th>عدد الأعضاء</th><th>إجمالي درجات المجموعة</th></tr>
-    {% for a in report_admins %}
-    <tr>
-      <td><strong>{{ a.display_name or a.username }}</strong></td>
-      <td><span class="badge badge-blue">{{ a.user_count }}</span></td>
-      <td><span class="badge badge-green">{{ a.group_pts }} درجة</span></td>
-    </tr>
-    {% endfor %}
-  </table>
+
+<!-- تبويبات فرعية داخل التقارير -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+  <button onclick="showRep('users')" id="repTabUsers"
+          style="padding:10px 20px;border-radius:10px;border:2px solid #1a6e4a;background:#1a6e4a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">
+    👤 تقرير Users
+  </button>
+  <button onclick="showRep('admins')" id="repTabAdmins"
+          style="padding:10px 20px;border-radius:10px;border:2px solid #e0e0e0;background:#fff;color:#555;font-size:14px;font-weight:600;cursor:pointer">
+    🔑 تقرير Admins
+  </button>
 </div>
 
-<div class="card">
-  <div class="card-title">📊 تقرير Users الكامل</div>
-  <div style="overflow-x:auto">
-  <table>
-    <tr><th>الاسم</th><th>المشرف</th><th>الدرجات الكلية</th></tr>
-    {% for u in report_users %}
-    <tr>
-      <td><strong>{{ u.display_name or u.username }}</strong></td>
-      <td>{{ u.sup_name }}</td>
-      <td><span class="badge badge-green">{{ u.total_pts }} درجة</span></td>
-    </tr>
-    {% endfor %}
-  </table>
+<!-- ── تقرير Users ── -->
+<div id="repUsers">
+
+  <!-- ملخص سريع -->
+  <div class="card">
+    <div class="card-title">📊 ملخص الدرجات ({{ sd.strftime('%d/%m') }} – {{ ed.strftime('%d/%m/%Y') }})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+      {% for udata in report_users_detail %}
+      <div style="background:linear-gradient(135deg,#1a6e4a,#228a5c);color:#fff;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px">{{ udata.user.display_name or udata.user.username }}</div>
+        <div style="font-size:22px;font-weight:700">{{ udata.total_pts }}</div>
+        <div style="font-size:10px;opacity:.8">درجة</div>
+        {% if udata.sup %}
+        <div style="font-size:10px;opacity:.75;margin-top:4px">مشرف: {{ udata.sup.display_name or udata.sup.username }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
   </div>
+
+  <!-- تفاصيل كل user -->
+  {% for udata in report_users_detail %}
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div>
+        <span style="font-size:17px;font-weight:700;color:#1a3a2e">{{ udata.user.display_name or udata.user.username }}</span>
+        {% if udata.sup %}
+        <span class="badge badge-blue" style="margin-right:8px">مشرف: {{ udata.sup.display_name or udata.sup.username }}</span>
+        {% else %}
+        <span class="badge badge-gray" style="margin-right:8px">بدون مشرف</span>
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge badge-green" style="font-size:13px;padding:5px 12px">{{ udata.total_pts }} درجة إجمالي</span>
+        <span class="badge badge-blue">{{ udata.days|selectattr('points','gt',0)|list|length }} يوم سجّل</span>
+        <span class="badge badge-yellow">{{ udata.days|selectattr('missing','gt',0)|list|length }} يوم ناقص</span>
+      </div>
+    </div>
+
+    {% for dd in udata.days %}
+    <div style="border:1px solid #eee;border-radius:10px;margin-bottom:8px;overflow:hidden">
+      <div style="background:{{ '#e8f4ee' if dd.missing==0 and dd.points>0 else '#fff9e6' if dd.points>0 else '#f8f8f8' }};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer"
+           onclick="toggleEl('su_{{ udata.user.id }}_{{ loop.index }}')">
+        <span style="font-size:14px;font-weight:700;color:#1a3a2e">
+          {{ day_ar(dd.date) }} {{ dd.date.strftime('%d/%m/%Y') }}
+        </span>
+        <div style="display:flex;align-items:center;gap:8px">
+          {% if dd.points > 0 %}
+            <span style="font-size:17px;font-weight:700;color:#1a6e4a">{{ dd.points }} درجة</span>
+          {% else %}
+            <span style="font-size:12px;color:#aaa">لم يسجّل</span>
+          {% endif %}
+          {% if dd.missing > 0 %}
+            <span class="badge badge-yellow">{{ dd.missing }} ناقص</span>
+          {% endif %}
+          <span style="color:#aaa">▾</span>
+        </div>
+      </div>
+      <div id="su_{{ udata.user.id }}_{{ loop.index }}" style="display:none;padding:12px 14px">
+        {% if dd.records %}
+        {% for wird in wirds %}
+          {% set rec = dd.records.get(wird.id) %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;gap:10px;flex-wrap:wrap">
+            <span style="font-size:13px;color:#333;flex:1">{{ wird_name(wird, dd.date) }}</span>
+            {% if rec %}
+              {% for o in wird.options %}{% if o.code == rec.option_code %}
+                <span style="font-size:12px;background:#e8f4ee;color:#1a6e4a;padding:3px 10px;border-radius:6px;font-weight:600">{{ o.label }} — {{ rec.points }} درجة</span>
+              {% endif %}{% endfor %}
+            {% else %}
+              <span style="font-size:12px;color:#aaa;background:#f5f5f5;padding:3px 10px;border-radius:6px">لم يسجّل</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% else %}
+          <p style="color:#aaa;font-size:13px;text-align:center;padding:8px 0">لم يسجّل أي ورد</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% if not report_users_detail %}
+  <p style="text-align:center;color:#888;padding:30px">مفيش users لسه</p>
+  {% endif %}
+</div>
+
+<!-- ── تقرير Admins ── -->
+<div id="repAdmins" style="display:none">
+
+  <!-- ملخص سريع للـ admins -->
+  <div class="card">
+    <div class="card-title">🔑 ملخص Admins</div>
+    <div style="overflow-x:auto">
+    <table>
+      <tr>
+        <th>الـ Admin</th>
+        <th>عدد الأعضاء</th>
+        <th>إجمالي درجات المجموعة</th>
+        {% for d in days %}
+        <th style="font-size:11px;text-align:center">{{ day_ar(d) }}<br>{{ d.strftime('%d/%m') }}</th>
+        {% endfor %}
+      </tr>
+      {% for adata in report_admins_detail %}
+      <tr>
+        <td><strong>{{ adata.admin.display_name or adata.admin.username }}</strong></td>
+        <td><span class="badge badge-blue">{{ adata.user_count }}</span></td>
+        <td><span class="badge badge-green">{{ adata.group_pts }} درجة</span></td>
+        {% for dd in adata.days %}
+        <td style="text-align:center">
+          {% if dd.total_users == 0 %}
+            <span style="color:#ddd">—</span>
+          {% elif dd.followed_count == dd.total_users %}
+            <span class="badge badge-green" style="font-size:10px">{{ dd.followed_count }}/{{ dd.total_users }} ✅</span>
+          {% elif dd.followed_count > 0 %}
+            <span class="badge badge-yellow" style="font-size:10px">{{ dd.followed_count }}/{{ dd.total_users }}</span>
+          {% else %}
+            <span class="badge badge-gray" style="font-size:10px">0/{{ dd.total_users }}</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+
+  <!-- تفاصيل كل admin -->
+  {% for adata in report_admins_detail %}
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <span style="font-size:17px;font-weight:700;color:#1a3a2e">{{ adata.admin.display_name or adata.admin.username }}</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge badge-blue">{{ adata.user_count }} عضو</span>
+        <span class="badge badge-green">{{ adata.group_pts }} درجة إجمالي</span>
+      </div>
+    </div>
+
+    <!-- أعضاء المجموعة -->
+    {% if adata.my_users %}
+    <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:6px">أعضاء المجموعة:</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        {% for u in adata.my_users %}
+        <span class="badge badge-blue">{{ u.display_name or u.username }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- تفاصيل كل يوم للـ admin -->
+    {% for dd in adata.days %}
+    <div style="border:1px solid #eee;border-radius:10px;margin-bottom:8px;overflow:hidden">
+      <div style="background:{{ '#e8f4ee' if dd.followed_count==dd.total_users and dd.total_users>0 else '#fff9e6' if dd.followed_count>0 else '#f8f8f8' }};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer"
+           onclick="toggleEl('ad_{{ adata.admin.id }}_{{ loop.index }}')">
+        <span style="font-size:14px;font-weight:700;color:#1a3a2e">
+          {{ day_ar(dd.date) }} {{ dd.date.strftime('%d/%m/%Y') }}
+        </span>
+        <div style="display:flex;align-items:center;gap:8px">
+          {% if dd.total_users > 0 %}
+            {% if dd.followed_count == dd.total_users %}
+              <span class="badge badge-green">تابع الكل ✅ ({{ dd.followed_count }}/{{ dd.total_users }})</span>
+            {% elif dd.followed_count > 0 %}
+              <span class="badge badge-yellow">تابع {{ dd.followed_count }}/{{ dd.total_users }}</span>
+              <span class="badge badge-red">لم يتابع {{ dd.total_users - dd.followed_count }}</span>
+            {% else %}
+              <span class="badge badge-gray">لم يتابع أحد</span>
+            {% endif %}
+          {% endif %}
+          <span style="color:#aaa">▾</span>
+        </div>
+      </div>
+      <div id="ad_{{ adata.admin.id }}_{{ loop.index }}" style="display:none;padding:12px 14px">
+        {% for fu in dd.followups %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:600;color:#333">{{ fu.user.display_name or fu.user.username }}</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            {% if fu.followed %}
+              <span class="badge badge-green">✅ تابع</span>
+            {% else %}
+              <span class="badge badge-red">❌ لم يتابع</span>
+            {% endif %}
+            {% if fu.score is not none %}
+              <span class="badge badge-blue">تقييم: {{ fu.score }}/100</span>
+            {% else %}
+              <span class="badge badge-gray">بدون تقييم</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% if not dd.followups %}
+          <p style="color:#aaa;font-size:13px;text-align:center;padding:8px 0">لا توجد بيانات متابعة</p>
+        {% endif %}
+        {% if dd.not_followed %}
+        <div style="margin-top:10px;padding:8px 12px;background:#fff5f5;border-radius:8px;border:1px solid #f8d7da">
+          <span style="font-size:12px;color:#721c24;font-weight:600">لم يتابعهم: </span>
+          <span style="font-size:12px;color:#721c24">{{ dd.not_followed|join('، ') }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% if not report_admins_detail %}
+  <p style="text-align:center;color:#888;padding:30px">مفيش admins لسه</p>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}
@@ -409,5 +602,19 @@ function toggleSupField(){
   document.getElementById('supField').style.display=(r==='user')?'block':'none'
 }
 toggleSupField()
+function toggleEl(id){
+  const el=document.getElementById(id)
+  if(el) el.style.display=el.style.display==='none'?'block':'none'
+}
+function showRep(tab){
+  document.getElementById('repUsers').style.display=tab==='users'?'block':'none'
+  document.getElementById('repAdmins').style.display=tab==='admins'?'block':'none'
+  document.getElementById('repTabUsers').style.background=tab==='users'?'#1a6e4a':'#fff'
+  document.getElementById('repTabUsers').style.color=tab==='users'?'#fff':'#555'
+  document.getElementById('repTabUsers').style.borderColor=tab==='users'?'#1a6e4a':'#e0e0e0'
+  document.getElementById('repTabAdmins').style.background=tab==='admins'?'#4a148c':'#fff'
+  document.getElementById('repTabAdmins').style.color=tab==='admins'?'#fff':'#555'
+  document.getElementById('repTabAdmins').style.borderColor=tab==='admins'?'#4a148c':'#e0e0e0'
+}
 </script>
 {% endblock %}
