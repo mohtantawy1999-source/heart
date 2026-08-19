@@ -146,6 +146,7 @@ def init_db():
             id INTEGER PRIMARY KEY DEFAULT 1,
             site_name    TEXT NOT NULL DEFAULT 'متابعة الأوراد',
             logo_data    TEXT DEFAULT '',
+            logo_size    INTEGER DEFAULT 60,
             welcome_msg  TEXT DEFAULT 'أهلاً بك في نظام متابعة الأوراد',
             start_date   TEXT DEFAULT '',
             end_date     TEXT DEFAULT '',
@@ -218,6 +219,7 @@ def init_db():
         ("supervisor_id", "INTEGER DEFAULT NULL"),
         ("page_start",    "INTEGER DEFAULT 1"),
         ("plain_pw",      "TEXT NOT NULL DEFAULT ''"),
+        ("logo_size",     "INTEGER DEFAULT 60"),
     ]:
         try: conn.run(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {dfn}")
         except Exception: pass
@@ -293,12 +295,13 @@ def init_db():
 def get_settings(conn):
     s = qone(conn, "SELECT * FROM site_settings WHERE id=1")
     if not s:
-        return {"site_name": "متابعة الأوراد", "logo_data": "",
+        return {"site_name": "متابعة الأوراد", "logo_data": "", "logo_size": 60,
                 "welcome_msg": "", "start_date": DEFAULT_START.isoformat(),
                 "end_date": DEFAULT_END.isoformat(), "page_start": 1}
     if not s.get("start_date"): s["start_date"] = DEFAULT_START.isoformat()
     if not s.get("end_date"):   s["end_date"]   = DEFAULT_END.isoformat()
     if not s.get("page_start"): s["page_start"] = 1
+    if not s.get("logo_size"):  s["logo_size"]  = 60
     return s
 
 def get_period(settings):
@@ -728,10 +731,15 @@ def super_dashboard():
         if action == "update_site":
             site_name = request.form.get("site_name","").strip()
             welcome   = request.form.get("welcome_msg","").strip()
+            logo_size = request.form.get("logo_size","60").strip()
             logo_file = request.files.get("logo_file")
             updates = {}
             if site_name: updates["site_name"] = site_name
             if welcome:   updates["welcome_msg"] = welcome
+            try:
+                sz = int(logo_size)
+                if 20 <= sz <= 200: updates["logo_size"] = sz
+            except Exception: pass
             if logo_file and logo_file.filename:
                 import base64
                 ext = logo_file.filename.rsplit(".",1)[-1].lower()
