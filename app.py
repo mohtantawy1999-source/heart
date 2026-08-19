@@ -587,7 +587,6 @@ def user_dashboard():
         stats.append({
             "date": d, "records": day_rec,
             "points": day_pts, "missing": len(wirds) - len(dr),
-            "label": wird_display_name({"dynamic_pages": False}, d, sd, page_start)
         })
 
     total_pts = calc_total_score(conn, session["uid"], sd, ed)
